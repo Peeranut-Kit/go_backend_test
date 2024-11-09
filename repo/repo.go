@@ -17,7 +17,7 @@ type PostgresDB struct {
 }
 
 func NewPostgresDB(db *sql.DB) *PostgresDB {
-    return &PostgresDB{db: db}
+	return &PostgresDB{db: db}
 }
 
 type TaskRepository interface {
@@ -26,12 +26,14 @@ type TaskRepository interface {
 	GetTaskById(id int) (utils.Task, error)
 	UpdateTask(id int, task utils.Task) (utils.Task, error)
 	DeleteTask(id int) error
+
+	GetOldFinishedTasks() ([]utils.Task, error)
 }
 
 func (postgres *PostgresDB) GetTasks() ([]utils.Task, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	
+
 	var tasks []utils.Task
 	const query = `SELECT * FROM tasks`
 	result, err := postgres.db.QueryContext(ctx, query)
@@ -69,7 +71,7 @@ func (postgres *PostgresDB) CreateTask(task utils.Task) (utils.Task, error) {
 		&createdTask.Completed,
 		&createdTask.CreatedAt,
 	)
-	
+
 	if err != nil {
 		log.Println(err.Error())
 		return utils.Task{}, err
@@ -117,7 +119,7 @@ func (postgres *PostgresDB) UpdateTask(id int, task utils.Task) (utils.Task, err
 		&updatedTask.Completed,
 		&updatedTask.CreatedAt,
 	)
-	
+
 	if err == sql.ErrNoRows {
 		return utils.Task{}, ErrTaskNotFound
 	} else if err != nil {
@@ -143,4 +145,31 @@ func (postgres *PostgresDB) DeleteTask(id int) error {
 	}
 
 	return nil
+}
+
+func (postgres *PostgresDB) GetOldFinishedTasks() ([]utils.Task, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var tasks []utils.Task
+	const query = `SELECT * FROM tasks WHERE completed = true AND created_at < NOW() - INTERVAL '7 days';`
+	result, err := postgres.db.QueryContext(ctx, query)
+	if err != nil {
+		log.Println(err.Error())
+		return nil, err
+	}
+	defer result.Close()
+	for result.Next() {
+		var task utils.Task
+		result.Scan(
+			&task.Id,
+			&task.Title,
+			&task.Description,
+			&task.Completed,
+			&task.CreatedAt,
+		)
+
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
 }

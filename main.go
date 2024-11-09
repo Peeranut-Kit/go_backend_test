@@ -11,6 +11,7 @@ import (
 
 	"github.com/Peeranut-Kit/go_backend_test/handler"
 	"github.com/Peeranut-Kit/go_backend_test/repo"
+	"github.com/Peeranut-Kit/go_backend_test/service"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -40,7 +41,7 @@ func main() {
 
 	taskRepo := repo.NewPostgresDB(db)
 	taskHandler := handler.TaskHandler{
-		DB: db,
+		DB:       db,
 		TaskRepo: taskRepo,
 	}
 	// Set up routes to handler
@@ -48,6 +49,7 @@ func main() {
 	http.HandleFunc("/tasks/", taskHandler.TaskHandlerByID)
 
 	// Start background task for periodic cleanup
+	go service.BackgroundTask(taskRepo)
 
 	// Start HTTP server
 	port := os.Getenv("PORT")
