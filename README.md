@@ -23,9 +23,10 @@ This project is a simple Go REST API for task management system with a backgroun
 
 3. Download and initialize PostgreSQL container in docker.
    If you do not have docker installed in your computer, feel free to check their website. https://www.docker.com/
-    ```docker run --name postgresTask -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres```
 
-4. Set up PostgreSQL database and create table
+   ```docker run --name postgresTask -e POSTGRES_PASSWORD=password -p 5432:5432 -d postgres```
+
+5. Set up PostgreSQL database and create table
    1. Open a shell inside a running Docker container
    ```docker exec -it postgresTask psql -U postgres```
    2. Create a table using SQL command in postgres_init.sql file to create tasks table in the database
