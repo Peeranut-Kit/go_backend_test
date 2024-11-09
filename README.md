@@ -29,13 +29,13 @@ This project is a simple Go REST API for task management system with a backgroun
    ```
 
 4. Set up PostgreSQL database and create table.
-   1. Open a shell inside a running Docker container
+   1. Open a shell inside a running Docker container.
    ```
    docker exec -it postgresTask psql -U postgres
    ```
-   2. Create a table using SQL command in postgres_init.sql file to create tasks table in the database
+   2. Create a table using SQL command in postgres_init.sql file to create tasks table in the database.
   
-5. Run Go API service
+5. Run Go API service.
    ```
    go run main.go
    ```
