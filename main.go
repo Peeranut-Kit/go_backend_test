@@ -37,7 +37,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Database connected successfully2")
+	fmt.Println("Database connected successfully")
 
 	taskRepo := repo.NewPostgresDB(db)
 	taskHandler := handler.TaskHandler{

@@ -20,7 +20,7 @@ func NewPostgresDB(db *sql.DB) *PostgresDB {
 	return &PostgresDB{db: db}
 }
 
-type TaskRepository interface {
+/*type TaskRepository interface {
 	GetTasks() ([]utils.Task, error)
 	CreateTask(task utils.Task) (utils.Task, error)
 	GetTaskById(id int) (utils.Task, error)
@@ -28,7 +28,7 @@ type TaskRepository interface {
 	DeleteTask(id int) error
 
 	GetOldFinishedTasks() ([]utils.Task, error)
-}
+}*/
 
 func (postgres *PostgresDB) GetTasks() ([]utils.Task, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

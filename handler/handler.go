@@ -14,7 +14,7 @@ import (
 
 type TaskHandler struct {
 	DB *sql.DB
-	TaskRepo repo.TaskRepository
+	TaskRepo *repo.PostgresDB
 }
 
 func (h TaskHandler) TasksHandler(w http.ResponseWriter, r *http.Request) {
