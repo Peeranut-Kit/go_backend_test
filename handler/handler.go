@@ -31,10 +31,10 @@ func (h TaskHandler) GetTaskHandler(c *fiber.Ctx) error {
 
 	task, err := h.TaskRepo.GetTaskById(taskId)
 	if err != nil {
-		if err == repo.ErrTaskNotFound {
+		if err == repo.ErrNotFound {
 			return c.Status(fiber.StatusNotFound).SendString(err.Error())
 		} else {
-			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
 	}
 
@@ -53,9 +53,12 @@ func (h TaskHandler) PostTaskHandler(c *fiber.Ctx) error {
 	if err != nil {
 		log.Println("Error creating task:", err)
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
-	}
+	} 
 
-	return c.JSON(createdTask)
+	return c.JSON(fiber.Map{
+		"message": "Create Task Successful",
+		"createdTask": createdTask,
+	})
 }
 
 func (h TaskHandler) PutTaskHandler(c *fiber.Ctx) error {
@@ -72,14 +75,17 @@ func (h TaskHandler) PutTaskHandler(c *fiber.Ctx) error {
 
 	updatedTask, err := h.TaskRepo.UpdateTask(taskId, task)
 	if err != nil {
-		if err == repo.ErrTaskNotFound {
+		if err == repo.ErrNotFound {
 			return c.Status(fiber.StatusNotFound).SendString(err.Error())
 		} else {
-			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
 	}
 
-	return c.JSON(updatedTask)
+	return c.JSON(fiber.Map{
+		"message": "Update Task Successful",
+		"updatedTask": updatedTask,
+	})
 }
 
 func (h TaskHandler) DeleteTaskHandler(c *fiber.Ctx) error {
@@ -90,10 +96,10 @@ func (h TaskHandler) DeleteTaskHandler(c *fiber.Ctx) error {
 
 	err = h.TaskRepo.DeleteTask(taskId)
 	if err != nil {
-		if err == repo.ErrTaskNotFound {
+		if err == repo.ErrNotFound {
 			return c.Status(fiber.StatusNotFound).SendString(err.Error())
 		} else {
-			return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 		}
 	}
 

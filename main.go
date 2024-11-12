@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"github.com/Peeranut-Kit/go_backend_test/handler"
 	"github.com/Peeranut-Kit/go_backend_test/repo"
 	"github.com/Peeranut-Kit/go_backend_test/service"
+	"github.com/Peeranut-Kit/go_backend_test/utils"
 	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -19,6 +19,9 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
@@ -28,7 +31,7 @@ func main() {
 	// Load environment variables
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		panic("Error loading .env file")
 	}
 
 	// Initialize database
@@ -36,17 +39,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to the database: %v", err)
 	}
-	defer db.Close()
+	/*defer db.Close()
 
 	err = db.Ping()
 	if err != nil {
 		log.Fatal(err)
-	}
+	}*/
 	fmt.Println("Database connected successfully")
 
-	taskRepo := repo.NewPostgresDB(db)
+	// AutoMigration to create task table in database. create but never delete column, so it is not practical. we preferred Migrator()
+	db.AutoMigrate(&utils.Task{}, &utils.User{})
+
+	repo := repo.NewPostgresDB(db)
 	taskHandler := handler.TaskHandler{
-		TaskRepo: taskRepo,
+		TaskRepo: repo,
+	}
+
+	userHandler := handler.UserHandler{
+		UserRepo: repo,
 	}
 
 	// Fiber
@@ -59,18 +69,23 @@ func main() {
 	// Enable CORS with default settings
 	app.Use(cors.New())
 
-	app.Post("/login", login)
+	app.Use(simpleLogMiddleware)
+
+	app.Post("/register", userHandler.Register)
+	app.Post("/login", userHandler.Login)
 
 	// JWT Middleware
 	app.Use(jwtware.New(jwtware.Config{
 		SigningKey: jwtware.SigningKey{Key: []byte(os.Getenv("JWT_SECRET"))},
 	}))
-	app.Use(checkMiddleware)
 
 	// This way applies middleware into every request
 	// Can group routes by using taskRoute := app.Group("/tasks")
 	// taskRoute.Use(checkMiddleware) this only applies in one group
 	// then taskRoute.Get("/", handler.GetTasks)
+
+	taskRoute := app.Group("/tasks")
+	taskRoute.Use(authRequiredMiddleware)
 
 	app.Get("/tasks", taskHandler.GetTasksHandler)
 	app.Post("/tasks", taskHandler.PostTaskHandler)
@@ -94,10 +109,21 @@ func main() {
 	app.Listen(":" + port)
 
 	// Start background task for periodic cleanup
-	go service.BackgroundTask(taskRepo)
+	go service.BackgroundTask(repo)
 }
 
-func initDatabase() (*sql.DB, error) {
+func initDatabase() (*gorm.DB, error) {
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		logger.Config{
+		  SlowThreshold:              time.Second,   // Slow SQL threshold
+		  LogLevel:                   logger.Info, // Log level
+		  IgnoreRecordNotFoundError: false,           // Ignore ErrRecordNotFound error for logger
+		  ParameterizedQueries:      false,           // Don't include params in the SQL log
+		  Colorful:                  true,          // Disable color
+		},
+	)
+	
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbUser := os.Getenv("POSTGRES_USER")
@@ -105,7 +131,10 @@ func initDatabase() (*sql.DB, error) {
 	dbName := os.Getenv("POSTGRES_DB")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPassword, dbName)
-	db, err := sql.Open("postgres", connStr)
+	//db, err := sql.Open("postgres", connStr)
+	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{
+		Logger: newLogger,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -120,67 +149,32 @@ func gracefulShutdown() {
 	fmt.Println("Shutting down server...")
 }
 
-func checkMiddleware(c *fiber.Ctx) error {
+func simpleLogMiddleware(c *fiber.Ctx) error {
 	start := time.Now()
 	fmt.Printf(
 		"URL = %s, Method = %s, Time = %s\n",
 		c.OriginalURL(), c.Method(), start,
 	)
 
-	user := c.Locals("user").(*jwt.Token)
-	claims := user.Claims.(jwt.MapClaims)
-
-	if claims["admin"] != true {
-		return c.SendStatus(fiber.StatusUnauthorized)
-	}
-
 	return c.Next()
 }
 
-type User struct {
-	Email    string
-	Password string
-}
+func authRequiredMiddleware(c *fiber.Ctx) error {
+	cookie := c.Cookies("jwt")
+	secretKey := os.Getenv("JWT_SECRET")
 
-var memberUser = User{
-	Email:    "user@example.com",
-	Password: "password123",
-}
+	token, err := jwt.ParseWithClaims(cookie, jwt.MapClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
 
-func login(c *fiber.Ctx) error {
-	var user *User
-	if err := c.BodyParser(user); err != nil {
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
-	}
-
-	if user == nil {
-		return c.SendStatus(fiber.StatusBadRequest)
-	}
-
-	if !(user.Email == memberUser.Email && user.Password == memberUser.Password) {
+	if err != nil || !token.Valid {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
 
-	// Create the Claims
-	claims := jwt.MapClaims{
-		"name":  user.Email,
-		"admin": true,
-		"exp":   time.Now().Add(time.Hour * 72).Unix(),
-	}
+	claim := token.Claims.(jwt.MapClaims)
+	fmt.Println(claim)
 
-	// Create token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	// Generate encoded token and send it as response.
-	t, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
-	if err != nil {
-		return c.SendStatus(fiber.StatusInternalServerError)
-	}
-
-	return c.JSON(fiber.Map{
-		"message": "Login success",
-		"token":   t,
-	})
+	return c.Next()
 }
 
 func getEnv(c *fiber.Ctx) error {

@@ -35,7 +35,7 @@ func cleanupOldTasks(postgres *repo.PostgresDB) {
 	defer logFile.Close()
 
 	for _, task := range tasks {
-		log.Printf("Deleting old finished task ID: %d\n", task.Id)
+		log.Printf("Deleting old finished task ID: %d\n", task.ID)
 
 		// Log the task to the file
 		taskByte, err := json.Marshal(task)
@@ -46,7 +46,7 @@ func cleanupOldTasks(postgres *repo.PostgresDB) {
 		logFile.Write(taskByte)
 
 		// delete the task from database
-		err = postgres.DeleteTask(task.Id)
+		err = postgres.DeleteTask(int(task.ID))
 		if err != nil {
 			log.Println("Error deleting task:", err)
 			return
