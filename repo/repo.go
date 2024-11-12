@@ -36,15 +36,15 @@ func (postgres *PostgresDB) GetTasks() ([]utils.Task, error) {
 
 	var tasks []utils.Task
 	const query = `SELECT * FROM tasks`
-	result, err := postgres.db.QueryContext(ctx, query)
+	rows, err := postgres.db.QueryContext(ctx, query)
 	if err != nil {
 		log.Println(err.Error())
 		return nil, err
 	}
-	defer result.Close()
-	for result.Next() {
+	defer rows.Close()
+	for rows.Next() {
 		var task utils.Task
-		result.Scan(
+		rows.Scan(
 			&task.Id,
 			&task.Title,
 			&task.Description,
