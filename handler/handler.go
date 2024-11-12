@@ -10,6 +10,7 @@ import (
 
 	"github.com/Peeranut-Kit/go_backend_test/repo"
 	"github.com/Peeranut-Kit/go_backend_test/utils"
+	"github.com/gofiber/fiber/v2"
 )
 
 type TaskHandler struct {
@@ -189,4 +190,52 @@ func (h TaskHandler) TaskHandlerByID(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+}
+
+func GetTasks(c *fiber.Ctx) error {
+	return c.JSON(tasks)
+}
+
+func GetTask(c *fiber.Ctx) error {
+	taskId, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+
+	// use SendStatus when you want to only send statusCode not chaining anything to respond body
+	return c.SendStatus(fiber.StatusNotFound)
+}
+
+func PostTask(c *fiber.Ctx) error {
+	var task *utils.Task
+	if err := c.BodyParser(task); err != nil {
+		log.Println("Error decoding request body:", err)
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+
+	return c.JSON(task)
+}
+
+func PutTask(c *fiber.Ctx) error {
+	taskId, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+
+	var task *utils.Task
+	if err := c.BodyParser(task); err != nil {
+		log.Println("Error decoding request body:", err)
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+
+	return c.SendStatus(fiber.StatusNotFound)
+}
+
+func DeleteTask(c *fiber.Ctx) error {
+	taskId, err := strconv.Atoi(c.Params("id"))
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+
+	return c.JSON(tasks)
 }
