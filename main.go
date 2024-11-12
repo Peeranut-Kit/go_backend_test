@@ -10,12 +10,14 @@ import (
 	"time"
 
 	"github.com/Peeranut-Kit/go_backend_test/handler"
+	"github.com/Peeranut-Kit/go_backend_test/repo"
+	"github.com/Peeranut-Kit/go_backend_test/service"
+	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/template/html/v2"
-	"github.com/joho/godotenv"
-	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
@@ -28,32 +30,25 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	/*
-		// Initialize database
-		db, err := initDatabase()
-		if err != nil {
-			panic(fmt.Sprintf("Failed to connect to the database: %v", err))
-		}
-		defer db.Close()
 
-		err = db.Ping()
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println("Database connected successfully")
+	// Initialize database
+	db, err := initDatabase()
+	if err != nil {
+		log.Fatalf("Failed to connect to the database: %v", err)
+	}
+	defer db.Close()
 
-		taskRepo := repo.NewPostgresDB(db)
-		taskHandler := handler.TaskHandler{
-			DB:       db,
-			TaskRepo: taskRepo,
-		}
-		// Set up routes to handler
-		http.HandleFunc("/tasks", taskHandler.TasksHandler)
-		http.HandleFunc("/tasks/", taskHandler.TaskHandlerByID)
+	err = db.Ping()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Database connected successfully")
 
-		// Start background task for periodic cleanup
-		go service.BackgroundTask(taskRepo)
-	*/
+	taskRepo := repo.NewPostgresDB(db)
+	taskHandler := handler.TaskHandler{
+		TaskRepo: taskRepo,
+	}
+
 	// Fiber
 	engine := html.New("./views", ".html")
 
@@ -77,11 +72,11 @@ func main() {
 	// taskRoute.Use(checkMiddleware) this only applies in one group
 	// then taskRoute.Get("/", handler.GetTasks)
 
-	app.Get("/tasks", handler.GetTasks)
-	app.Post("/tasks", handler.PostTask)
-	app.Get("/tasks/:id", handler.GetTask)
-	app.Put("/tasks/:id", handler.PutTask)
-	app.Delete("/tasks/:id", handler.DeleteTask)
+	app.Get("/tasks", taskHandler.GetTasksHandler)
+	app.Post("/tasks", taskHandler.PostTaskHandler)
+	app.Get("/tasks/:id", taskHandler.GetTaskHandler)
+	app.Put("/tasks/:id", taskHandler.PutTaskHandler)
+	app.Delete("/tasks/:id", taskHandler.DeleteTaskHandler)
 
 	// View Template -> render webpage without using frontend framework (no more usage)
 	app.Get("/view-tasks", func(c *fiber.Ctx) error {
@@ -97,6 +92,9 @@ func main() {
 	port := os.Getenv("PORT")
 	fmt.Printf("Starting server on port %s...\n", port)
 	app.Listen(":" + port)
+
+	// Start background task for periodic cleanup
+	go service.BackgroundTask(taskRepo)
 }
 
 func initDatabase() (*sql.DB, error) {
@@ -131,7 +129,7 @@ func checkMiddleware(c *fiber.Ctx) error {
 
 	user := c.Locals("user").(*jwt.Token)
 	claims := user.Claims.(jwt.MapClaims)
-	
+
 	if claims["admin"] != true {
 		return c.SendStatus(fiber.StatusUnauthorized)
 	}
@@ -153,6 +151,10 @@ func login(c *fiber.Ctx) error {
 	var user *User
 	if err := c.BodyParser(user); err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+	}
+
+	if user == nil {
+		return c.SendStatus(fiber.StatusBadRequest)
 	}
 
 	if !(user.Email == memberUser.Email && user.Password == memberUser.Password) {
@@ -177,7 +179,7 @@ func login(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "Login success",
-		"token": t,
+		"token":   t,
 	})
 }
 

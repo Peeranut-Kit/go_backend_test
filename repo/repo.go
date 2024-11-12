@@ -30,7 +30,7 @@ func NewPostgresDB(db *sql.DB) *PostgresDB {
 	GetOldFinishedTasks() ([]utils.Task, error)
 }*/
 
-func (postgres *PostgresDB) GetTasks() ([]utils.Task, error) {
+func (postgres *PostgresDB) GetTasks() (*[]utils.Task, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -54,10 +54,10 @@ func (postgres *PostgresDB) GetTasks() ([]utils.Task, error) {
 
 		tasks = append(tasks, task)
 	}
-	return tasks, nil
+	return &tasks, nil
 }
 
-func (postgres *PostgresDB) CreateTask(task utils.Task) (utils.Task, error) {
+func (postgres *PostgresDB) CreateTask(task *utils.Task) (*utils.Task, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -74,13 +74,13 @@ func (postgres *PostgresDB) CreateTask(task utils.Task) (utils.Task, error) {
 
 	if err != nil {
 		log.Println(err.Error())
-		return utils.Task{}, err
+		return nil, err
 	}
 
-	return createdTask, nil
+	return &createdTask, nil
 }
 
-func (postgres *PostgresDB) GetTaskById(id int) (utils.Task, error) {
+func (postgres *PostgresDB) GetTaskById(id int) (*utils.Task, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -96,16 +96,16 @@ func (postgres *PostgresDB) GetTaskById(id int) (utils.Task, error) {
 	)
 
 	if err == sql.ErrNoRows {
-		return utils.Task{}, ErrTaskNotFound
+		return nil, ErrTaskNotFound
 	} else if err != nil {
 		log.Println(err.Error())
-		return utils.Task{}, err
+		return nil, err
 	}
 
-	return task, nil
+	return &task, nil
 }
 
-func (postgres *PostgresDB) UpdateTask(id int, task utils.Task) (utils.Task, error) {
+func (postgres *PostgresDB) UpdateTask(id int, task *utils.Task) (*utils.Task, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -121,13 +121,13 @@ func (postgres *PostgresDB) UpdateTask(id int, task utils.Task) (utils.Task, err
 	)
 
 	if err == sql.ErrNoRows {
-		return utils.Task{}, ErrTaskNotFound
+		return nil, ErrTaskNotFound
 	} else if err != nil {
 		log.Println(err.Error())
-		return utils.Task{}, err
+		return nil, err
 	}
 
-	return updatedTask, nil
+	return &updatedTask, nil
 }
 
 func (postgres *PostgresDB) DeleteTask(id int) error {
