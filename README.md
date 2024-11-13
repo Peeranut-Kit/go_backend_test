@@ -46,3 +46,6 @@ This project is a simple Go REST API for task management system with a backgroun
 3. POST /tasks
 4. PUT /tasks/{id}
 5. DELETE /tasks/{id}
+
+## Background Task (Cronjob)
+The background routine is implemented in service folder. The results are logged into background_task.log file in the same directory.
