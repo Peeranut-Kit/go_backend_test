@@ -15,6 +15,7 @@ import (
 type UserHandlerInterface interface {
 	Register(c *fiber.Ctx) error
 	Login(c *fiber.Ctx) error
+	GetCurrentUser(c *fiber.Ctx) error
 }
 
 // Primary adapter
@@ -80,10 +81,10 @@ func (u HttpUserHandler) Login(c *fiber.Ctx) error {
 
 	// JWT part: Create the Claims
 	claims := jwt.MapClaims{
-		"user_id": user.ID,
-		"name":  user.Email,
-		"admin": true,
-		"exp":   time.Now().Add(time.Hour * 72).Unix(),
+		"user_id": selectedUserByEmail.ID,
+		"name":    selectedUserByEmail.Email,
+		"admin":   true,
+		"exp":     time.Now().Add(time.Hour * 72).Unix(),
 	}
 
 	// Create token
@@ -97,13 +98,24 @@ func (u HttpUserHandler) Login(c *fiber.Ctx) error {
 
 	// Insert JWT token into Fiber Cookie
 	c.Cookie(&fiber.Cookie{
-		Name:		"jwt",
-		Value:		t,
-		Expires: 	time.Now().Add(time.Hour * 72),
-		HTTPOnly:	true,
+		Name:     "jwt",
+		Value:    t,
+		Expires:  time.Now().Add(time.Hour * 72),
+		HTTPOnly: true,
 	})
 
 	return c.JSON(fiber.Map{
 		"message": "Login success",
+		"token": t,
+	})
+}
+
+func (u HttpUserHandler) GetCurrentUser(c *fiber.Ctx) error {
+	userID := c.Locals("user_id").(string)
+	name := c.Locals("name").(string)
+
+	return c.JSON(fiber.Map{
+		"userID": userID,
+		"name":   name,
 	})
 }

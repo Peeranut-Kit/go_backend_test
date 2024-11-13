@@ -56,21 +56,29 @@ func (h *HttpTaskHandler) GetTaskHandler(c *fiber.Ctx) error {
 }
 
 func (h *HttpTaskHandler) PostTaskHandler(c *fiber.Ctx) error {
-	var task *utils.Task
+	task := &utils.Task{}
 	// or task := new(utils.Task) because BodyParser() expects a pointer to a struct, not the struct itself.
 	if err := c.BodyParser(task); err != nil {
 		log.Println("Error decoding request body:", err)
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
+	// Core Logic
+	userIdString := c.Locals("user_id").(string)
+	userIDInt, err := strconv.Atoi(userIdString)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
+	}
+	task.UserID = userIDInt
+
 	createdTask, err := h.TaskRepo.CreateTask(task)
 	if err != nil {
 		log.Println("Error creating task:", err)
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
-	} 
+	}
 
 	return c.JSON(fiber.Map{
-		"message": "Create Task Successful",
+		"message":     "Create Task Successful",
 		"createdTask": createdTask,
 	})
 }
@@ -81,7 +89,7 @@ func (h *HttpTaskHandler) PutTaskHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 
-	var task *utils.Task
+	task := new(utils.Task)
 	if err := c.BodyParser(task); err != nil {
 		log.Println("Error decoding request body:", err)
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
@@ -97,7 +105,7 @@ func (h *HttpTaskHandler) PutTaskHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"message": "Update Task Successful",
+		"message":     "Update Task Successful",
 		"updatedTask": updatedTask,
 	})
 }

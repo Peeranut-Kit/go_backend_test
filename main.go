@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -12,7 +13,8 @@ import (
 	"github.com/Peeranut-Kit/go_backend_test/repo"
 	"github.com/Peeranut-Kit/go_backend_test/service"
 	"github.com/Peeranut-Kit/go_backend_test/utils"
-	jwtware "github.com/gofiber/contrib/jwt"
+
+	//jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/template/html/v2"
@@ -56,7 +58,7 @@ func main() {
 	// Initiate primary adapter
 	taskHandler := handler.NewHttpTaskHandler(taskRepo)
 	userHandler := handler.NewHttpUserHandler(userRepo)
-	
+
 	// Fiber
 	engine := html.New("./views", ".html")
 
@@ -72,10 +74,10 @@ func main() {
 	app.Post("/register", userHandler.Register)
 	app.Post("/login", userHandler.Login)
 
-	// JWT Middleware
+	/*// JWT Middleware is applied globally
 	app.Use(jwtware.New(jwtware.Config{
 		SigningKey: jwtware.SigningKey{Key: []byte(os.Getenv("JWT_SECRET"))},
-	}))
+	}))*/
 
 	// This way applies middleware into every request
 	// Can group routes by using taskRoute := app.Group("/tasks")
@@ -85,12 +87,15 @@ func main() {
 	taskRoute := app.Group("/tasks")
 	taskRoute.Use(authRequiredMiddleware)
 
+	app.Get("/getme", authRequiredMiddleware, userHandler.GetCurrentUser)
+
 	app.Get("/tasks", taskHandler.GetTasksHandler)
 	app.Post("/tasks", taskHandler.PostTaskHandler)
 	app.Get("/tasks/:id", taskHandler.GetTaskHandler)
 	app.Put("/tasks/:id", taskHandler.PutTaskHandler)
 	app.Delete("/tasks/:id", taskHandler.DeleteTaskHandler)
 
+	// additional paths that are just learning note
 	// View Template -> render webpage without using frontend framework (no more usage)
 	app.Get("/view-tasks", func(c *fiber.Ctx) error {
 		return c.Render("task-index", fiber.Map{
@@ -114,14 +119,14 @@ func initDatabase() (*gorm.DB, error) {
 	newLogger := logger.New(
 		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
 		logger.Config{
-		  SlowThreshold:              time.Second,   // Slow SQL threshold
-		  LogLevel:                   logger.Info, // Log level
-		  IgnoreRecordNotFoundError: false,           // Ignore ErrRecordNotFound error for logger
-		  ParameterizedQueries:      false,           // Don't include params in the SQL log
-		  Colorful:                  true,          // Disable color
+			SlowThreshold:             time.Second, // Slow SQL threshold
+			LogLevel:                  logger.Info, // Log level
+			IgnoreRecordNotFoundError: false,       // Ignore ErrRecordNotFound error for logger
+			ParameterizedQueries:      false,       // Don't include params in the SQL log
+			Colorful:                  true,        // Disable color
 		},
 	)
-	
+
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbUser := os.Getenv("POSTGRES_USER")
@@ -170,7 +175,24 @@ func authRequiredMiddleware(c *fiber.Ctx) error {
 	}
 
 	claim := token.Claims.(jwt.MapClaims)
-	fmt.Println(claim)
+	/*fmt.Println(claim)
+	result is map[admin:true exp:1.731768743e+09 name:max@gmail.com user_id:0]*/
+
+	// store user_id and name and pass to the next handler
+	var userID string
+	if id, ok := claim["user_id"].(string); ok {
+		userID = id
+	} else if idFloat, ok := claim["user_id"].(float64); ok {
+		userID = strconv.FormatFloat(idFloat, 'f', 0, 64) // Convert float64 to string
+	} else {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "User ID not found in token",
+		})
+	}
+	name, _ := claim["name"].(string)
+
+	c.Locals("user_id", userID)
+	c.Locals("name", name)
 
 	return c.Next()
 }
