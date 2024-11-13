@@ -35,7 +35,7 @@ type User struct {
 	Password	string
 }
 
-/* example models.go file from https://docs.mikelopster.dev/c/goapi-essential/chapter-5/associate
+/* example
 type Book struct {
   gorm.Model
   Name        string `json:"name"`
