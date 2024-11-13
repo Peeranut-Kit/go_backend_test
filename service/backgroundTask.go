@@ -9,19 +9,19 @@ import (
 	"github.com/Peeranut-Kit/go_backend_test/repo"
 )
 
-func BackgroundTask(postgres *repo.PostgresDB) {
+func BackgroundTask(r repo.TaskRepositoryInterface) {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	// Run a loop to handle each tick
 	for range ticker.C {
-		cleanupOldTasks(postgres)
+		cleanupOldTasks(r)
 	}
 }
 
-func cleanupOldTasks(postgres *repo.PostgresDB) {
+func cleanupOldTasks(r repo.TaskRepositoryInterface) {
 	// delete completed tasks older than 7 days
-	tasks, err := postgres.GetOldFinishedTasks()
+	tasks, err := r.GetOldFinishedTasks()
 	if err != nil {
 		log.Println("Error fetching old finished tasks:", err)
 		return
@@ -46,7 +46,7 @@ func cleanupOldTasks(postgres *repo.PostgresDB) {
 		logFile.Write(taskByte)
 
 		// delete the task from database
-		err = postgres.DeleteTask(int(task.ID))
+		err = r.DeleteTask(int(task.ID))
 		if err != nil {
 			log.Println("Error deleting task:", err)
 			return

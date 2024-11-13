@@ -4,10 +4,27 @@ import (
 	"log"
 
 	"github.com/Peeranut-Kit/go_backend_test/utils"
+	"gorm.io/gorm"
 )
 
-func (postgres *PostgresDB) CreateUser(user *utils.User) error {
-	result := postgres.db.Create(user)
+// Secondary port
+type UserRepositoryInterface interface {
+	CreateUser(user *utils.User) error
+	GetUserFromEmail(user *utils.User) (*utils.User, error)
+}
+
+// Secondary adapter
+type UserGormRepo struct {
+	db *gorm.DB
+}
+
+// Initiate secondary adapter
+func NewUserGormRepo(db *gorm.DB) UserRepositoryInterface {
+	return &UserGormRepo{db: db}
+}
+
+func (r *UserGormRepo) CreateUser(user *utils.User) error {
+	result := r.db.Create(user)
 
 	if result.Error != nil {
 		log.Println(result.Error)
@@ -17,9 +34,9 @@ func (postgres *PostgresDB) CreateUser(user *utils.User) error {
 	return nil
 }
 
-func (postgres *PostgresDB) GetUserFromEmail(user *utils.User) (*utils.User, error) {
+func (r *UserGormRepo) GetUserFromEmail(user *utils.User) (*utils.User, error) {
 	selectedUser := new(utils.User)
-	result := postgres.db.Where("email = ?", user.Email).First(selectedUser)
+	result := r.db.Where("email = ?", user.Email).First(selectedUser)
 
 	if result.Error != nil {
 		log.Println(result.Error)

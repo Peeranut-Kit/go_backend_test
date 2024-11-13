@@ -12,11 +12,22 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserHandler struct {
-	UserRepo *repo.PostgresDB
+type UserHandlerInterface interface {
+	Register(c *fiber.Ctx) error
+	Login(c *fiber.Ctx) error
 }
 
-func (u UserHandler) Register(c *fiber.Ctx) error {
+// Primary adapter
+type HttpUserHandler struct {
+	UserRepo repo.UserRepositoryInterface
+}
+
+// Initiate primary adapter
+func NewHttpUserHandler(repo repo.UserRepositoryInterface) *HttpUserHandler {
+	return &HttpUserHandler{UserRepo: repo}
+}
+
+func (u HttpUserHandler) Register(c *fiber.Ctx) error {
 	user := new(utils.User)
 	if err := c.BodyParser(user); err != nil {
 		log.Println("Error decoding request body:", err)
@@ -44,7 +55,7 @@ func (u UserHandler) Register(c *fiber.Ctx) error {
 	})
 }
 
-func (u UserHandler) Login(c *fiber.Ctx) error {
+func (u HttpUserHandler) Login(c *fiber.Ctx) error {
 	user := new(utils.User)
 	if err := c.BodyParser(user); err != nil {
 		log.Println("Error decoding request body:", err)
@@ -54,7 +65,7 @@ func (u UserHandler) Login(c *fiber.Ctx) error {
 	// get user from email
 	selectedUserByEmail, err := u.UserRepo.GetUserFromEmail(user)
 	if err != nil {
-		if err == repo.ErrNotFound {
+		if err == utils.ErrNotFound {
 			return c.Status(fiber.StatusUnauthorized).SendString(err.Error())
 		} else {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())

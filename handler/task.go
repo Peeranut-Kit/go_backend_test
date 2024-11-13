@@ -9,11 +9,25 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type TaskHandler struct {
-	TaskRepo *repo.PostgresDB
+type TaskHandlerInterface interface {
+	GetTasksHandler(c *fiber.Ctx) error
+	GetTaskHandler(c *fiber.Ctx) error
+	PostTaskHandler(c *fiber.Ctx) error
+	PutTaskHandler(c *fiber.Ctx) error
+	DeleteTaskHandler(c *fiber.Ctx) error
 }
 
-func (h TaskHandler) GetTasksHandler(c *fiber.Ctx) error {
+// Primary adapter
+type HttpTaskHandler struct {
+	TaskRepo repo.TaskRepositoryInterface
+}
+
+// Initiate primary adapter
+func NewHttpTaskHandler(repo repo.TaskRepositoryInterface) *HttpTaskHandler {
+	return &HttpTaskHandler{TaskRepo: repo}
+}
+
+func (h *HttpTaskHandler) GetTasksHandler(c *fiber.Ctx) error {
 	tasks, err := h.TaskRepo.GetTasks()
 	if err != nil {
 		log.Println("Error getting tasks:", err)
@@ -23,7 +37,7 @@ func (h TaskHandler) GetTasksHandler(c *fiber.Ctx) error {
 	return c.JSON(tasks)
 }
 
-func (h TaskHandler) GetTaskHandler(c *fiber.Ctx) error {
+func (h *HttpTaskHandler) GetTaskHandler(c *fiber.Ctx) error {
 	taskId, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
@@ -31,7 +45,7 @@ func (h TaskHandler) GetTaskHandler(c *fiber.Ctx) error {
 
 	task, err := h.TaskRepo.GetTaskById(taskId)
 	if err != nil {
-		if err == repo.ErrNotFound {
+		if err == utils.ErrNotFound {
 			return c.Status(fiber.StatusNotFound).SendString(err.Error())
 		} else {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
@@ -41,7 +55,7 @@ func (h TaskHandler) GetTaskHandler(c *fiber.Ctx) error {
 	return c.JSON(task)
 }
 
-func (h TaskHandler) PostTaskHandler(c *fiber.Ctx) error {
+func (h *HttpTaskHandler) PostTaskHandler(c *fiber.Ctx) error {
 	var task *utils.Task
 	// or task := new(utils.Task) because BodyParser() expects a pointer to a struct, not the struct itself.
 	if err := c.BodyParser(task); err != nil {
@@ -61,7 +75,7 @@ func (h TaskHandler) PostTaskHandler(c *fiber.Ctx) error {
 	})
 }
 
-func (h TaskHandler) PutTaskHandler(c *fiber.Ctx) error {
+func (h *HttpTaskHandler) PutTaskHandler(c *fiber.Ctx) error {
 	taskId, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
@@ -75,7 +89,7 @@ func (h TaskHandler) PutTaskHandler(c *fiber.Ctx) error {
 
 	updatedTask, err := h.TaskRepo.UpdateTask(taskId, task)
 	if err != nil {
-		if err == repo.ErrNotFound {
+		if err == utils.ErrNotFound {
 			return c.Status(fiber.StatusNotFound).SendString(err.Error())
 		} else {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
@@ -88,7 +102,7 @@ func (h TaskHandler) PutTaskHandler(c *fiber.Ctx) error {
 	})
 }
 
-func (h TaskHandler) DeleteTaskHandler(c *fiber.Ctx) error {
+func (h *HttpTaskHandler) DeleteTaskHandler(c *fiber.Ctx) error {
 	taskId, err := strconv.Atoi(c.Params("id"))
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
@@ -96,7 +110,7 @@ func (h TaskHandler) DeleteTaskHandler(c *fiber.Ctx) error {
 
 	err = h.TaskRepo.DeleteTask(taskId)
 	if err != nil {
-		if err == repo.ErrNotFound {
+		if err == utils.ErrNotFound {
 			return c.Status(fiber.StatusNotFound).SendString(err.Error())
 		} else {
 			return c.Status(fiber.StatusInternalServerError).SendString(err.Error())

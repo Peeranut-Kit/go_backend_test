@@ -5,19 +5,31 @@ import (
 	"time"
 
 	"github.com/Peeranut-Kit/go_backend_test/utils"
+	"gorm.io/gorm"
 )
 
-/*type TaskRepository interface {
+// Secondary port
+type TaskRepositoryInterface interface {
 	GetTasks() ([]utils.Task, error)
-	CreateTask(task utils.Task) (utils.Task, error)
-	GetTaskById(id int) (utils.Task, error)
-	UpdateTask(id int, task utils.Task) (utils.Task, error)
+	CreateTask(task *utils.Task) (*utils.Task, error)
+	GetTaskById(id int) (*utils.Task, error)
+	UpdateTask(id int, task *utils.Task) (*utils.Task, error)
 	DeleteTask(id int) error
 
 	GetOldFinishedTasks() ([]utils.Task, error)
-}*/
+}
 
-func (postgres *PostgresDB) GetTasks() ([]utils.Task, error) {
+// Secondary adapter
+type TaskGormRepo struct {
+	db *gorm.DB
+}
+
+// Initiate secondary adapter
+func NewTaskGormRepo(db *gorm.DB) TaskRepositoryInterface {
+	return &TaskGormRepo{db: db}
+}
+
+func (r *TaskGormRepo) GetTasks() ([]utils.Task, error) {
 	/*ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -45,7 +57,7 @@ func (postgres *PostgresDB) GetTasks() ([]utils.Task, error) {
 
 	var tasks []utils.Task
 
-	result := postgres.db.Find(&tasks)
+	result := r.db.Find(&tasks)
 
 	if result.Error != nil {
 		log.Println(result.Error)
@@ -55,7 +67,7 @@ func (postgres *PostgresDB) GetTasks() ([]utils.Task, error) {
 	return tasks, nil
 }
 
-func (postgres *PostgresDB) CreateTask(task *utils.Task) (*utils.Task, error) {
+func (r *TaskGormRepo) CreateTask(task *utils.Task) (*utils.Task, error) {
 	/*ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -75,7 +87,7 @@ func (postgres *PostgresDB) CreateTask(task *utils.Task) (*utils.Task, error) {
 		return nil, err
 	}*/
 
-	result := postgres.db.Create(task)
+	result := r.db.Create(task)
 
 	if result.Error != nil {
 		log.Println(result.Error)
@@ -85,7 +97,7 @@ func (postgres *PostgresDB) CreateTask(task *utils.Task) (*utils.Task, error) {
 	return task, nil
 }
 
-func (postgres *PostgresDB) GetTaskById(id int) (*utils.Task, error) {
+func (r *TaskGormRepo) GetTaskById(id int) (*utils.Task, error) {
 	/*ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -109,7 +121,7 @@ func (postgres *PostgresDB) GetTaskById(id int) (*utils.Task, error) {
 
 	var task utils.Task
 
-	result := postgres.db.First(&task, id)
+	result := r.db.First(&task, id)
 
 	if result.Error != nil {
 		log.Println(result.Error)
@@ -119,7 +131,7 @@ func (postgres *PostgresDB) GetTaskById(id int) (*utils.Task, error) {
 	return &task, nil
 }
 
-func (postgres *PostgresDB) UpdateTask(id int, task *utils.Task) (*utils.Task, error) {
+func (r *TaskGormRepo) UpdateTask(id int, task *utils.Task) (*utils.Task, error) {
 	/*ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -147,7 +159,7 @@ func (postgres *PostgresDB) UpdateTask(id int, task *utils.Task) (*utils.Task, e
 	// Update columns that are in the object -> createdAt GONE
 	// result := postgres.db.Save(task)
 	// Update multiple columns
-	result := postgres.db.Model(&task).Updates(task)
+	result := r.db.Model(&task).Updates(task)
 
 	if result.Error != nil {
 		log.Println(result.Error)
@@ -157,7 +169,7 @@ func (postgres *PostgresDB) UpdateTask(id int, task *utils.Task) (*utils.Task, e
 	return task, nil
 }
 
-func (postgres *PostgresDB) DeleteTask(id int) error {
+func (r *TaskGormRepo) DeleteTask(id int) error {
 	/*ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -176,7 +188,7 @@ func (postgres *PostgresDB) DeleteTask(id int) error {
 	var task utils.Task
 
 	// Soft Delete: just set delete_at to current timestamp (has this ability if the struct has gorm.Model attribute)
-	result := postgres.db.Delete(&task, id)
+	result := r.db.Delete(&task, id)
 	// Hard Delete: delete permanently
 	// db.Unscoped().Delete(&task) : Unscoped() is used for finding soft deleted records
 
@@ -188,7 +200,7 @@ func (postgres *PostgresDB) DeleteTask(id int) error {
 	return nil
 }
 
-func (postgres *PostgresDB) GetOldFinishedTasks() ([]utils.Task, error) {
+func (r *TaskGormRepo) GetOldFinishedTasks() ([]utils.Task, error) {
 	/*ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -218,7 +230,7 @@ func (postgres *PostgresDB) GetOldFinishedTasks() ([]utils.Task, error) {
 	var tasks []utils.Task
 
 	weekAgo := time.Now().AddDate(0, 0, -7)
-	result := postgres.db.Where("completed = ? AND created_at < ?", true, weekAgo).Find(&tasks)
+	result := r.db.Where("completed = ? AND created_at < ?", true, weekAgo).Find(&tasks)
 
 	if result.Error != nil {
 		log.Println(result.Error)

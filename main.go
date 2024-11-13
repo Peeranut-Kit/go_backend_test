@@ -50,15 +50,13 @@ func main() {
 	// AutoMigration to create task table in database. create but never delete column, so it is not practical. we preferred Migrator()
 	db.AutoMigrate(&utils.Task{}, &utils.User{})
 
-	repo := repo.NewPostgresDB(db)
-	taskHandler := handler.TaskHandler{
-		TaskRepo: repo,
-	}
-
-	userHandler := handler.UserHandler{
-		UserRepo: repo,
-	}
-
+	// Initiate secondary adapter
+	taskRepo := repo.NewTaskGormRepo(db)
+	userRepo := repo.NewUserGormRepo(db)
+	// Initiate primary adapter
+	taskHandler := handler.NewHttpTaskHandler(taskRepo)
+	userHandler := handler.NewHttpUserHandler(userRepo)
+	
 	// Fiber
 	engine := html.New("./views", ".html")
 
@@ -109,7 +107,7 @@ func main() {
 	app.Listen(":" + port)
 
 	// Start background task for periodic cleanup
-	go service.BackgroundTask(repo)
+	go service.BackgroundTask(taskRepo)
 }
 
 func initDatabase() (*gorm.DB, error) {
