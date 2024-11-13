@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"regexp"
 	"strconv"
 	"syscall"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/Peeranut-Kit/go_backend_test/repo"
 	"github.com/Peeranut-Kit/go_backend_test/service"
 	"github.com/Peeranut-Kit/go_backend_test/utils"
+	"github.com/go-playground/validator/v10"
 
 	//jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
@@ -39,29 +41,34 @@ func main() {
 	// Initialize database
 	db, err := initDatabase()
 	if err != nil {
-		log.Fatalf("Failed to connect to the database: %v", err)
+		panic(fmt.Sprintf("Failed to connect to the database: %v", err))
 	}
 	/*defer db.Close()
 
 	err = db.Ping()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}*/
 	fmt.Println("Database connected successfully")
 
 	// AutoMigration to create task table in database. create but never delete column, so it is not practical. we preferred Migrator()
 	db.AutoMigrate(&utils.Task{}, &utils.User{})
 
-	// Initiate secondary adapter
+	// Initialize validator
+	validate := validator.New()
+	// Register the custom validation function for 'fullname'
+	validate.RegisterValidation("fullname", validateFullname)
+
+	// Initialize secondary adapter
 	taskRepo := repo.NewTaskGormRepo(db)
 	userRepo := repo.NewUserGormRepo(db)
-	// Initiate primary adapter
+	// Initialize primary adapter
 	taskHandler := handler.NewHttpTaskHandler(taskRepo)
-	userHandler := handler.NewHttpUserHandler(userRepo)
+	userHandler := handler.NewHttpUserHandler(userRepo, validate)
 
-	// Fiber
 	engine := html.New("./views", ".html")
 
+	// Fiber
 	app := fiber.New(fiber.Config{
 		Views: engine,
 	})
@@ -195,6 +202,11 @@ func authRequiredMiddleware(c *fiber.Ctx) error {
 	c.Locals("name", name)
 
 	return c.Next()
+}
+
+// validateFullname checks if the value contains only alphabets and spaces.
+func validateFullname(fl validator.FieldLevel) bool {
+	return regexp.MustCompile(`^[a-zA-Z\s]+$`).MatchString(fl.Field().String())
 }
 
 func getEnv(c *fiber.Ctx) error {

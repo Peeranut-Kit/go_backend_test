@@ -7,6 +7,7 @@ import (
 
 	"github.com/Peeranut-Kit/go_backend_test/repo"
 	"github.com/Peeranut-Kit/go_backend_test/utils"
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -21,11 +22,12 @@ type UserHandlerInterface interface {
 // Primary adapter
 type HttpUserHandler struct {
 	UserRepo repo.UserRepositoryInterface
+	validate *validator.Validate
 }
 
 // Initiate primary adapter
-func NewHttpUserHandler(repo repo.UserRepositoryInterface) *HttpUserHandler {
-	return &HttpUserHandler{UserRepo: repo}
+func NewHttpUserHandler(repo repo.UserRepositoryInterface, validate *validator.Validate) *HttpUserHandler {
+	return &HttpUserHandler{UserRepo: repo, validate: validate}
 }
 
 func (u HttpUserHandler) Register(c *fiber.Ctx) error {
@@ -34,7 +36,12 @@ func (u HttpUserHandler) Register(c *fiber.Ctx) error {
 		log.Println("Error decoding request body:", err)
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
-	
+
+	// validate the user struct input
+	if err := u.validate.Struct(user); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
 	// hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 
@@ -49,7 +56,7 @@ func (u HttpUserHandler) Register(c *fiber.Ctx) error {
 	if err != nil {
 		log.Println("Error creating user:", err)
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
-	} 
+	}
 
 	return c.JSON(fiber.Map{
 		"message": "Create User Successful",
@@ -82,7 +89,7 @@ func (u HttpUserHandler) Login(c *fiber.Ctx) error {
 	// JWT part: Create the Claims
 	claims := jwt.MapClaims{
 		"user_id": selectedUserByEmail.ID,
-		"name":    selectedUserByEmail.Email,
+		"name":    selectedUserByEmail.Name,
 		"admin":   true,
 		"exp":     time.Now().Add(time.Hour * 72).Unix(),
 	}
@@ -106,7 +113,7 @@ func (u HttpUserHandler) Login(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": "Login success",
-		"token": t,
+		"token":   t,
 	})
 }
 

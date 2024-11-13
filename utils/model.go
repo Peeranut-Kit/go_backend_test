@@ -23,16 +23,19 @@ type Task struct {
 	Description string    `json:"description"`
 	Completed   bool      `json:"completed"`
 	CreatedAt   time.Time `json:"created_at"`
-	UserID		int
-	User		User
+	UserID      int
+	User        User
 }
+
 // Now GORM knows UserID is foreign key by struct and stuctID!
 // can use customized foreign key by tagging `gorm:"foreignKey:<attribute_name>"` at User struct line
 
 type User struct {
 	gorm.Model
-	Email		string		`gorm:"unique"`
-	Password	string
+	Email    string `gorm:"unique" json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+	Name     string `json:"name" validate:"required,fullname"`
+  //Age      int    `json:"age" validate:"required,numeric,min=1"`
 }
 
 /* example
