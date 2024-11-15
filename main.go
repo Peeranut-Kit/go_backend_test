@@ -192,8 +192,8 @@ func authRequiredMiddleware(c *fiber.Ctx) error {
 	} else if idFloat, ok := claim["user_id"].(float64); ok {
 		userID = strconv.FormatFloat(idFloat, 'f', 0, 64) // Convert float64 to string
 	} else {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "User ID not found in token",
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Invalid User ID conversion in token",
 		})
 	}
 	name, _ := claim["name"].(string)
